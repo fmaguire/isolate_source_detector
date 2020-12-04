@@ -29,19 +29,21 @@ def isd(isolates, metadata_fp, fasta_fp, tree_fp, tree_label_type, output_dir,
 
     # for each isolate find all nearest sequences in the tree with older
     # collection dates than the input sample
-    #logging.info("Searching for older closest relatives of isolates in "
-    #             f"{tree_fp}")
-    #closest_older_in_tree = closest.get_closest_older_leaves_in_tree(tree,
-    #                                                                 metadata,
-    #                                                                 isolates)
+    logging.info("Searching for older closest relatives of isolates in "
+                 f"{tree_fp}")
+    closest_older_in_tree = closest.get_closest_older_leaves_in_tree(tree,
+                                                                     metadata,
+                                                                     isolates)
 
-    #print(closest_older_in_tree)
     # for each isolate find closest older genomes using mash
     logging.info(f"Searching {fasta_fp} using mash for closest relatives"
                   " to isolates")
     closest_older_in_mash = closest.get_closest_older_genomes(sketch,
                                                               isolate_fasta_fp,
+                                                              isolates,
                                                               metadata,
                                                               output_dir)
 
+
+    print(closest_older_in_tree)
     print(closest_older_in_mash)

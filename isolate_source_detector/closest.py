@@ -43,17 +43,17 @@ def get_closest_older_leaves_in_tree(tree, metadata, isolates):
         # for each leaf in the tree if its an older node get the distance
         # to the isolate node
         isolate_node = tree.search_nodes(name=isolate)[0]
-        isolate_tree_distances = {'query_strain': [],
-                                  'isolate': [], 'distance': []}
+        isolate_tree_distances = {'isolate': [],
+                                  'tree_genome': [], 'phylo_distance': []}
 
         for leaf in tree.iter_leaves():
             if leaf.name in older_strains and leaf.name != isolate:
-                isolate_tree_distances['query_strain'].append(isolate)
-                isolate_tree_distances['isolate'].append(leaf.name)
+                isolate_tree_distances['isolate'].append(isolate)
+                isolate_tree_distances['tree_genome'].append(leaf.name)
                 distance = tree.get_distance(isolate_node, leaf)
-                isolate_tree_distances['distance'].append(distance)
+                isolate_tree_distances['phylo_distance'].append(distance)
 
-        if len(isolate_tree_distances['distance']) == 0:
+        if len(isolate_tree_distances['phylo_distance']) == 0:
             logging.error(f"Could not find older strain in tree to {isolate}")
             sys.exit(1)
         else:
@@ -62,48 +62,55 @@ def get_closest_older_leaves_in_tree(tree, metadata, isolates):
     tree_distances = pd.concat(tree_distances)
 
     # get closest relatives for each isolate
-    closest_older_strains = tree_distances.groupby('query_strain')['distance'].idxmin()
-    closest_older_strains = tree_distances.loc[closest_older_strains]
+    # can't use idxmin because want to keep minimum ties
+
+    min_ix = tree_distances.groupby('isolate')['phylo_distance']\
+                    .nsmallest(1, keep='all').reset_index()['level_1'].values
+    closest_older_strains = tree_distances.loc[min_ix]
 
     return closest_older_strains
 
 
-def get_closest_older_genomes(sketch, isolate_fasta_fp, metadata,
+def get_closest_older_genomes(sketch, isolate_fasta_fp, isolates, metadata,
                               output_dir):
     """
     Use mash to get closest older genomes to isolate genomes via minimap2
     """
 
     mash_hits = output_dir / "isolate_mash_hits.tsv"
-    subprocess.run(f"mash dist -i {isolate_fasta_fp} {sketch} > {mash_hits}",
+    subprocess.run(f"mash dist -i {isolate_fasta_fp} {sketch} > {mash_hits} "
+                    " 2> /dev/null",
                     shell=True,
                     check=True)
 
-    mash_hits = pd.read_csv(mash_hits, sep='\t', names=["mash_hit_genome",
-                                                        "isolate",
+    mash_hits = pd.read_csv(mash_hits, sep='\t', names=["isolate",
+                                                        "mash_hit_genome",
                                                         "mash_distance",
                                                         "p-value",
                                                         "shared-hashes"])
 
-    mash_hits = pd.melt(mash_hits, id_vars='#query',
-                        var_name='mash_hit_genome', value_name='mash_dist')
-
     # filter out self-hits
-    mash_hits = mash_hits[mash_hits['mash_hit_genome'] != mash_hits['isolate']]
+    mash_hits = mash_hits[mash_hits['isolate'] != mash_hits['mash_hit_genome']]
 
     # get older strain names
     closest_older_mash_hits = []
     for isolate in isolates:
         isolate_date = metadata.loc[isolate, 'date']
-        older_strains = metadata.loc[metadata['date'] < isolate_date, 'strain']
-
+        older_strains = set(metadata[metadata['date'] < isolate_date].index)
         isolate_hits = mash_hits.loc[mash_hits['isolate'] == isolate]
-        older_isolate_hits = isolate_hits.loc[isolate_hits['mash_hit_genome'].isin(older_strains)]
+        older_isolate_hits = isolate_hits[isolate_hits['mash_hit_genome'].isin(older_strains)]
         closest_older_mash_hits.append(older_isolate_hits)
 
     closest_older_mash_hits = pd.concat(closest_older_mash_hits)
 
-    closest_older_mash_hits = closest_older_mash_hits.groupby('query_strain')['distance'].idxmin()
+    # can't use idxmin because want to keep minimum ties
+    min_ix = closest_older_mash_hits.groupby('isolate')['mash_distance']\
+                    .nsmallest(1, keep='all').reset_index()['level_1'].values
+
+    closest_older_mash_hits = closest_older_mash_hits.loc[min_ix,
+                                                          ['isolate',
+                                                           'mash_hit_genome',
+                                                           'mash_distance']]
 
     return closest_older_mash_hits
 
