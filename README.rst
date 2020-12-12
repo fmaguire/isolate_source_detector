@@ -2,40 +2,20 @@
 isolate_source_detector
 =======================
 
+Script to extract likely isolate sources from phylogenies, augur trait inference,
+and nextstrain metadata.
 
-.. image:: https://img.shields.io/pypi/v/isolate_source_detector.svg
-        :target: https://pypi.python.org/pypi/isolate_source_detector
+For a set of supplied isolate names:
 
-.. image:: https://img.shields.io/travis/fmaguire/isolate_source_detector.svg
-        :target: https://travis-ci.com/fmaguire/isolate_source_detector
+- Extracts the location of the nearest older sequence in the tree 
+  (by phylogenetic distance). As ideally this is a time-corrected tree we 
+  don't have to deal with complications like a long branching sister leaf 
+  (note: Rob Lanfear's global phylogeny is not time-corrected)
 
-.. image:: https://readthedocs.org/projects/isolate-source-detector/badge/?version=latest
-        :target: https://isolate-source-detector.readthedocs.io/en/latest/?badge=latest
-        :alt: Documentation Status
+- Extracts the inferred ancestor location trait from the results of 
+  `augur trait`.
 
-
-.. image:: https://pyup.io/repos/github/fmaguire/isolate_source_detector/shield.svg
-     :target: https://pyup.io/repos/github/fmaguire/isolate_source_detector/
-     :alt: Updates
-
-
-
-Script to extract likely isolate sources from augur trees and nextstrain metadata
+- Extracts the location of the nearest older genome to the isolate as inferred
+  by mash distance.
 
 
-* Free software: GNU General Public License v3
-* Documentation: https://isolate-source-detector.readthedocs.io.
-
-
-Features
---------
-
-* TODO
-
-Credits
--------
-
-This package was created with Cookiecutter_ and the `audreyr/cookiecutter-pypackage`_ project template.
-
-.. _Cookiecutter: https://github.com/audreyr/cookiecutter
-.. _`audreyr/cookiecutter-pypackage`: https://github.com/audreyr/cookiecutter-pypackage
