@@ -58,14 +58,10 @@ def isd(isolates_fp, metadata_fp, fasta_fp, tree_fp, traits_fp,
     closest_older_in_tree = closest.get_closest_older_leaves_in_tree(present_isolates,
                                                                      tree,
                                                                      metadata)
-    #closest_older_in_tree = utils.add_geo_location_from_metadata(closest_older_in_tree,
-    #                                                             metadata)
+    closest_older_in_tree = utils.add_geo_location_from_metadata(closest_older_in_tree,
+                                                                 metadata)
 
     closest_older_in_tree.to_csv(output_dir / "phylo_distance.tsv", sep='\t')
-
-    # for each isolate get parent node's inferred exposure information
-    # inferred_ancestor_exposure = closest.get_aancestor_exposure(tree,
-
 
     # for each isolate find closest older genomes using mash
     logging.info(f"Searching {fasta_fp} using mash sketch {sketch} "
@@ -76,17 +72,18 @@ def isd(isolates_fp, metadata_fp, fasta_fp, tree_fp, traits_fp,
                                                               metadata,
                                                               output_dir)
 
-    #closest_older_in_mash = utils.add_geo_location_from_metadata(closest_older_in_mash,
-    #                                                             metadata)
+    closest_older_in_mash = utils.add_geo_location_from_metadata(closest_older_in_mash,
+                                                                 metadata)
 
     closest_older_in_mash.to_csv(output_dir / "mash.tsv", sep='\t')
 
 
     # for each isolate find the inferred trait inference for ancestor node
     # in the tree
-    #logging.info(f"Searching for ancestor inferred trait in {tree_fp} using "
-    #             f"{traits_fp} ")
-    #ancestor_traits = closest.get_ancestor_traits(present_isolates,
-    #                                              tree,
-    #                                              metadata)
+    logging.info(f"Searching for ancestor inferred trait in {tree_fp} using "
+                 f"{traits_fp} ")
+    ancestor_traits = closest.get_ancestor_traits(present_isolates,
+                                                  tree,
+                                                  traits)
 
+    ancestor_traits.to_csv(output_dir / "inferred_traits.tsv", sep='\t')

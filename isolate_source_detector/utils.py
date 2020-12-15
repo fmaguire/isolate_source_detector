@@ -209,9 +209,10 @@ def check_input_consistency(isolates, metadata, traits, tree, fasta_strains):
     present_isolates = isolates.intersection(tree_strains, metadata_strains,
                                              fasta_strains, trait_strains)
     if len(present_isolates) != len(isolates):
-        logging.warning(f"Querying {len(present_isolates)/len(isolates)} due "
+        logging.warning(f"Querying {len(present_isolates)/len(isolates)*100}% due "
                         "to following isolates missing in input data: "
                         f"{isolates-present_isolates}")
+        logging.debug(f"Included isolates: {present_isolates}")
 
     return present_isolates
 
@@ -232,6 +233,7 @@ def mash_sketch_input_fasta(fasta_fp, output_dir):
         sys.exit(1)
     return sketch
 
+
 def parse_traits(trait_fp):
     """
     Read the augur inferred exposure traits
@@ -241,5 +243,11 @@ def parse_traits(trait_fp):
     traits = traits['nodes']
     return traits
 
+
+def add_geo_location_from_metadata(closest_df, metadata):
+    metadata_location = metadata[['region', 'country', 'division']]
+    closest_df = pd.merge(closest_df, metadata_location, left_on='closest_ancestor',
+                          right_index=True)
+    return closest_df
 
 

@@ -3,6 +3,7 @@ import tqdm
 import subprocess
 import sys
 import pandas as pd
+import pickle
 
 def get_closest_older_leaves_in_tree(isolates, tree, metadata):
     """
@@ -101,18 +102,24 @@ def get_closest_older_genomes(isolates, isolate_fasta_fp, sketch, metadata,
                                                            'distance']]
     return closest_older_mash_hits
 
+def get_ancestor_traits(present_isolates, tree, traits):
+    data = {'isolate': [], 'closest_ancestor': [],
+            'geographic_scale': [], 'geographic_loc': [],
+            'inference_confidence': []}
 
-#def get_ancestor_traits(present_isolates, tree, traits):
-#    """
-#
-#    """
-#    ancestor_traits = ['isolate': [], '
-#    for isolate in isolates:
-#        isolate_node = tree.search_nodes(name=isolate)[0]
-#        ancestor_node = isolate_node.up
-#        ancestor_traits = traits[ancestor_node.name]
-#
+    for isolate in present_isolates:
+        node = tree.search_nodes(name=isolate)[0]
+        node = node.up
+        ancestor_traits = traits[node.name]
+        for geo_scale in ['region_confidence', 'country_confidence', 'division_confidence']:
+            for location, confidence in ancestor_traits[geo_scale].items():
+                data['isolate'].append(isolate)
+                data['closest_ancestor'].append(node.name)
+                data['geographic_scale'].append(geo_scale.split('_')[0])
+                data['geographic_loc'].append(location)
+                data['inference_confidence'].append(confidence)
 
+    #with open('debug.pkl', 'wb') as fh:
+    #    pickle.dump(data, fh)
 
-
-
+    return pd.DataFrame(data)

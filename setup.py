@@ -3,6 +3,7 @@
 """The setup script."""
 
 from setuptools import setup, find_packages
+from isolate_source_detector import __version__
 
 with open('README.rst') as readme_file:
     readme = readme_file.read()
@@ -19,17 +20,17 @@ test_requirements = ['pytest>=3', ]
 setup(
     author="Finlay Maguire",
     author_email='finlaymaguire@gmail.com',
-    python_requires='>=3.5',
+    python_requires='>=3.6',
     classifiers=[
         'Development Status :: 2 - Pre-Alpha',
         'Intended Audience :: Developers',
         'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',
         'Natural Language :: English',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
+        'Programming Language :: Python :: 3.9',
     ],
     description="Script to extract likely isolate sources from augur trees and nextstrain metadata",
     entry_points={
@@ -48,6 +49,6 @@ setup(
     test_suite='tests',
     tests_require=test_requirements,
     url='https://github.com/fmaguire/isolate_source_detector',
-    version='0.1.0',
+    version=__version__,
     zip_safe=False,
 )
