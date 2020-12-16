@@ -217,13 +217,12 @@ def check_input_consistency(isolates, metadata, traits, tree, fasta_strains):
     return present_isolates
 
 
-def mash_sketch_input_fasta(fasta_fp, output_dir):
+def mash_sketch_input_fasta(fasta_fp, output_dir, num_processes):
     # sketch input _files
     sketch = output_dir / Path(fasta_fp).with_suffix('.msh').name
-    num_threads = 8
     if not sketch.exists():
         logging.info(f"Sketching {fasta_fp} to {sketch}")
-        subprocess.run(f"mash sketch -p {num_threads} -i {fasta_fp} "
+        subprocess.run(f"mash sketch -p {num_processes} -i {fasta_fp} "
                        f"-o {sketch}".split(), check=True)
     elif sketch.exists() and use_existing:
         logging.warning(f"Using previously created sketch: {sketch}")

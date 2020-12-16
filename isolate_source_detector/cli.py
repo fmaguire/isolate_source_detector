@@ -37,12 +37,14 @@ def print_version(ctx, param, value):
 #              help="Continue with files from previous runs")
 @click.option('--version', is_flag=True, callback=print_version,
               expose_value=False, is_eager=True)
+@click.option("--num_processes", "-n", default=4, type=int,
+              help="Number of processes to execute ISD using.")
 def main(isolates, metadata, fasta, tree, traits, output_dir,
-         debug):
+         debug, num_processes):
     """Console script for isolate_source_detector"""
 
     isolate_source_detector.isd(isolates, metadata, fasta, tree,
-                                traits, output_dir, debug)
+                                traits, output_dir, debug, num_processes)
     return 0
 
 

@@ -4,8 +4,42 @@ import subprocess
 import sys
 import pandas as pd
 import pickle
+from multiprocessing import Pool
 
-def get_closest_older_leaves_in_tree(isolates, tree, metadata):
+def older_leaves_for_isolate(input_data):
+    """
+    Inner loop worker for parallelising extract of older leaves for a specific
+    isolate
+    """
+    # extract input data
+    isolate, tree_metadata, tree = input_data
+
+    #get metadata for all strains in tree older than query isolate
+    strain_date = tree_metadata.loc[isolate, 'date']
+    metadata_older = tree_metadata[tree_metadata['date'] < strain_date]
+    older_strains = set(metadata_older.index)
+
+    # for each leaf in the tree if its an older node get the distance
+    # to the isolate node
+    isolate_node = tree.search_nodes(name=isolate)[0]
+    isolate_tree_distances = {'isolate': [], 'closest_ancestor': [],
+                              'metric': [], 'distance': []}
+    for leaf in tree.iter_leaves():
+        if leaf.name in older_strains and leaf.name != isolate:
+            isolate_tree_distances['isolate'].append(isolate)
+            isolate_tree_distances['closest_ancestor'].append(leaf.name)
+            distance = tree.get_distance(isolate_node, leaf)
+            isolate_tree_distances['metric'].append('phylo_distance')
+            isolate_tree_distances['distance'].append(distance)
+
+    if len(isolate_tree_distances['distance']) == 0:
+        logging.error(f"Could not find older strain in tree to {isolate}")
+        sys.exit(1)
+    else:
+        return pd.DataFrame(isolate_tree_distances)
+
+
+def get_closest_older_leaves_in_tree(isolates, tree, metadata, num_processes):
     """
     For each isolate find all nearest sequences in the tree with older
     collection dates than the input sample
@@ -16,35 +50,12 @@ def get_closest_older_leaves_in_tree(isolates, tree, metadata):
 
     # i.e. for augur tree "strain"
     tree_metadata = metadata.loc[leaf_names]
-    tree_distances = []
 
-    isolate_pbar = tqdm.tqdm(isolates)
-    for isolate in isolate_pbar:
-        isolate_pbar.set_description(f"Searching tree for {isolate}")
-
-        #get metadata for all strains in tree older than query isolate
-        strain_date = tree_metadata.loc[isolate, 'date']
-        metadata_older = tree_metadata[tree_metadata['date'] < strain_date]
-        older_strains = set(metadata_older.index)
-
-        # for each leaf in the tree if its an older node get the distance
-        # to the isolate node
-        isolate_node = tree.search_nodes(name=isolate)[0]
-        isolate_tree_distances = {'isolate': [], 'closest_ancestor': [],
-                                  'metric': [], 'distance': []}
-        for leaf in tree.iter_leaves():
-            if leaf.name in older_strains and leaf.name != isolate:
-                isolate_tree_distances['isolate'].append(isolate)
-                isolate_tree_distances['closest_ancestor'].append(leaf.name)
-                distance = tree.get_distance(isolate_node, leaf)
-                isolate_tree_distances['metric'].append('phylo_distance')
-                isolate_tree_distances['distance'].append(distance)
-
-        if len(isolate_tree_distances['distance']) == 0:
-            logging.error(f"Could not find older strain in tree to {isolate}")
-            sys.exit(1)
-        else:
-            tree_distances.append(pd.DataFrame(isolate_tree_distances))
+    # parallelise
+    pool = Pool(num_processes)
+    parallel_input = [(isolate, tree_metadata, tree) for isolate in isolates]
+    tree_distances = pool.map(older_leaves_for_isolate, parallel_input)
+    pool.close()
 
     tree_distances = pd.concat(tree_distances)
 
@@ -58,12 +69,12 @@ def get_closest_older_leaves_in_tree(isolates, tree, metadata):
 
 
 def get_closest_older_genomes(isolates, isolate_fasta_fp, sketch, metadata,
-                              output_dir):
+                              output_dir, num_processes):
     """
     Use mash to get closest older genomes to isolate genomes via minimap2
     """
     mash_hits = output_dir / "isolate_mash_hits.tsv"
-    subprocess.run(f"mash dist -i {isolate_fasta_fp} {sketch} > {mash_hits} "
+    subprocess.run(f"mash dist -p {num_processes} -i {isolate_fasta_fp} {sketch} > {mash_hits} "
                     " 2> /dev/null",
                     shell=True,
                     check=True)
@@ -102,7 +113,11 @@ def get_closest_older_genomes(isolates, isolate_fasta_fp, sketch, metadata,
                                                            'distance']]
     return closest_older_mash_hits
 
+
 def get_ancestor_traits(present_isolates, tree, traits):
+    """
+    Extract ancestor traits from augur's inferred traits json dictionary
+    """
     data = {'isolate': [], 'closest_ancestor': [],
             'geographic_scale': [], 'geographic_loc': [],
             'inference_confidence': []}
@@ -118,8 +133,5 @@ def get_ancestor_traits(present_isolates, tree, traits):
                 data['geographic_scale'].append(geo_scale.split('_')[0])
                 data['geographic_loc'].append(location)
                 data['inference_confidence'].append(confidence)
-
-    #with open('debug.pkl', 'wb') as fh:
-    #    pickle.dump(data, fh)
 
     return pd.DataFrame(data)

@@ -7,7 +7,7 @@ from pathlib import Path
 from isolate_source_detector import utils, closest
 
 def isd(isolates_fp, metadata_fp, fasta_fp, tree_fp, traits_fp,
-        output_dir, debug):
+        output_dir, debug, num_processes):
     """
     Main runner for ISD: finds closest relatives of isolates
     in both refined augur phylogeny and using minimap
@@ -48,7 +48,7 @@ def isd(isolates_fp, metadata_fp, fasta_fp, tree_fp, traits_fp,
                                                      fasta_strains)
 
     logging.info(f"Sketching input fasta: {fasta_fp}")
-    sketch = utils.mash_sketch_input_fasta(fasta_fp, output_dir)
+    sketch = utils.mash_sketch_input_fasta(fasta_fp, output_dir, num_processes)
 
     # for each isolate find all nearest sequences in the tree with older
     # collection dates than the input sample using a phylogenetic distances
@@ -57,7 +57,8 @@ def isd(isolates_fp, metadata_fp, fasta_fp, tree_fp, traits_fp,
                  f"{tree_fp}")
     closest_older_in_tree = closest.get_closest_older_leaves_in_tree(present_isolates,
                                                                      tree,
-                                                                     metadata)
+                                                                     metadata,
+                                                                     num_processes)
     closest_older_in_tree = utils.add_geo_location_from_metadata(closest_older_in_tree,
                                                                  metadata)
 
@@ -70,7 +71,8 @@ def isd(isolates_fp, metadata_fp, fasta_fp, tree_fp, traits_fp,
                                                               isolate_fasta_fp,
                                                               sketch,
                                                               metadata,
-                                                              output_dir)
+                                                              output_dir,
+                                                              num_processes)
 
     closest_older_in_mash = utils.add_geo_location_from_metadata(closest_older_in_mash,
                                                                  metadata)
