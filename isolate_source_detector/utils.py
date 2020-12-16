@@ -100,7 +100,6 @@ def parse_fasta(fasta_fp, isolates, output_dir):
     """
     extract isolate query fasta from nextfasta if it doesn't already exist
     """
-    isolate_fasta_fp = output_dir / "isolate_genomes.fasta"
 
     fasta_strains = []
     isolate_seqs = []
@@ -110,11 +109,20 @@ def parse_fasta(fasta_fp, isolates, output_dir):
             isolate_seqs.append(record)
 
     fasta_strains = set(fasta_strains)
+    
+    # write these as separate files to make mash more parallelisable
+    # currently doing mash dist of all queries vs all references makes 
+    # a painfully massive list of hits (>60GB) which can't be sorted afterwards
+    isolate_folder = output_dir / "isolate_genomes"
+    isolate_folder.mkdir()
+    isolate_fasta_index = {}
+    for record in isolate_seqs:
+        output_path = isolate_folder / Path(record.id.replace('/', '_'))
+        with open(output_path, 'w') as out_fh:
+            SeqIO.write(record, out_fh, "fasta")
+        isolate_fasta_index[record.id] = output_path
 
-    with open(isolate_fasta_fp, 'w') as isolate_fasta_fh:
-        SeqIO.write(isolate_seqs, isolate_fasta_fh, "fasta")
-
-    return fasta_strains, isolate_fasta_fp
+    return fasta_strains, isolate_fasta_index
 
 
 def check_input_consistency(isolates, metadata, traits, tree, fasta_strains):
@@ -219,18 +227,11 @@ def check_input_consistency(isolates, metadata, traits, tree, fasta_strains):
 
 def mash_sketch_input_fasta(fasta_fp, output_dir, num_processes):
     # sketch input _files
-    sketch = output_dir / Path(fasta_fp).with_suffix('.msh').name
-    if not sketch.exists():
-        logging.info(f"Sketching {fasta_fp} to {sketch}")
-        subprocess.run(f"mash sketch -p {num_processes} -i {fasta_fp} "
-                       f"-o {sketch}".split(), check=True)
-    elif sketch.exists() and use_existing:
-        logging.warning(f"Using previously created sketch: {sketch}")
-    elif isolate_fasta_fp.exists() and not use_existing:
-        logging.error(f"{sketch} exists but shouldn't as use_existing is"
-                       " False")
-        sys.exit(1)
-    return sketch
+    ref_sketch = output_dir / Path(fasta_fp).with_suffix('.msh').name
+    logging.info(f"Sketching {fasta_fp} to {ref_sketch}")
+    subprocess.run(f"mash sketch -p {num_processes} -i {fasta_fp} "
+                       f"-o {ref_sketch}".split(), check=True)
+    return ref_sketch
 
 
 def parse_traits(trait_fp):

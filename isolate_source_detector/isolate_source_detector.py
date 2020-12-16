@@ -37,8 +37,8 @@ def isd(isolates_fp, metadata_fp, fasta_fp, tree_fp, traits_fp,
     tree = utils.parse_tree(tree_fp)
 
     logging.info(f"Parsing input fasta: {fasta_fp}")
-    fasta_strains, isolate_fasta_fp = utils.parse_fasta(fasta_fp, isolates,
-                                                        output_dir)
+    fasta_strains, isolate_fasta_index = utils.parse_fasta(fasta_fp, isolates,
+                                                           output_dir)
 
     logging.info("Checking input files for consistency")
     present_isolates = utils.check_input_consistency(isolates,
@@ -46,9 +46,27 @@ def isd(isolates_fp, metadata_fp, fasta_fp, tree_fp, traits_fp,
                                                      traits,
                                                      tree,
                                                      fasta_strains)
+    present_isolate_fasta_index = {isolate: path for isolate, path \
+                                        in isolate_fasta_index.items() \
+                                        if isolate in present_isolates}
 
-    logging.info(f"Sketching input fasta: {fasta_fp}")
-    sketch = utils.mash_sketch_input_fasta(fasta_fp, output_dir, num_processes)
+
+    logging.info(f"Sketching input fastas: {fasta_fp}")
+    ref_sketch = utils.mash_sketch_input_fasta(fasta_fp, output_dir, num_processes)
+
+    # for each isolate find closest older genomes using mash
+    logging.info(f"Searching {ref_sketch} using mash sketch of all isolates "
+                 "for closest relatives to isolates")
+    closest_older_in_mash = closest.get_closest_older_genomes(present_isolate_fasta_index,
+                                                              ref_sketch,
+                                                              metadata,
+                                                              output_dir,
+                                                              num_processes)
+
+    closest_older_in_mash = utils.add_geo_location_from_metadata(closest_older_in_mash,
+                                                                 metadata)
+
+    closest_older_in_mash.to_csv(output_dir / "mash.tsv", sep='\t')
 
     # for each isolate find all nearest sequences in the tree with older
     # collection dates than the input sample using a phylogenetic distances
@@ -64,22 +82,6 @@ def isd(isolates_fp, metadata_fp, fasta_fp, tree_fp, traits_fp,
 
     closest_older_in_tree.to_csv(output_dir / "phylo_distance.tsv", sep='\t')
 
-    # for each isolate find closest older genomes using mash
-    logging.info(f"Searching {fasta_fp} using mash sketch {sketch} "
-                 "for closest relatives to isolates")
-    closest_older_in_mash = closest.get_closest_older_genomes(present_isolates,
-                                                              isolate_fasta_fp,
-                                                              sketch,
-                                                              metadata,
-                                                              output_dir,
-                                                              num_processes)
-
-    closest_older_in_mash = utils.add_geo_location_from_metadata(closest_older_in_mash,
-                                                                 metadata)
-
-    closest_older_in_mash.to_csv(output_dir / "mash.tsv", sep='\t')
-
-
     # for each isolate find the inferred trait inference for ancestor node
     # in the tree
     logging.info(f"Searching for ancestor inferred trait in {tree_fp} using "
@@ -89,3 +91,4 @@ def isd(isolates_fp, metadata_fp, fasta_fp, tree_fp, traits_fp,
                                                   traits)
 
     ancestor_traits.to_csv(output_dir / "inferred_traits.tsv", sep='\t')
+

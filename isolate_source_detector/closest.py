@@ -4,6 +4,7 @@ import subprocess
 import sys
 import pandas as pd
 import pickle
+from io import StringIO
 from multiprocessing import Pool
 
 def older_leaves_for_isolate(input_data):
@@ -68,49 +69,51 @@ def get_closest_older_leaves_in_tree(isolates, tree, metadata, num_processes):
     return closest_older_strains
 
 
-def get_closest_older_genomes(isolates, isolate_fasta_fp, sketch, metadata,
+def older_mash_for_isolate(input_data):
+    """
+    Inner loop for parallelising mash across isolates without ending up with
+    a 60GB mash dist file containing all hits 
+    """
+    isolate, isolate_fasta, metadata, ref_sketch = input_data
+
+    result = subprocess.run(f"mash dist -p 1 {ref_sketch} {isolate_fasta} 2> /dev/null",
+                             stdout=subprocess.PIPE,
+                             shell=True,
+                             check=True)
+
+    isolate_hit = pd.read_csv(StringIO(result.stdout.decode('utf8')), 
+                              sep='\t', names=["closest_ancestor",
+                                               "isolate",
+                                               "distance",
+                                               "p-value",
+                                               "shared-hashes"])
+    # filter out self-hits
+    isolate_hits = isolate_hits[isolate_hits['isolate'] != isolate_hits['closest_ancestor']]
+
+    isolate_data = metadata.loc[isolate, 'date'] 
+    older_strains = set(metadata[metadata['date'] < isolate_date].index)
+    older_isolate_hits = isolate_hits[isolate_hits['closest_ancestor'].isin(older_strains)]
+    
+    top_hit_ix = older_hits['distance'].nsmallest(1, keep='all').index
+    top_hits = older_hits.loc[top_hit_ix, ['isolate', 'closest_ancestor',
+                                            'metric', 'distance']]
+    return top_hits
+ 
+
+def get_closest_older_genomes(isolate_fasta_index, ref_sketch, metadata,
                               output_dir, num_processes):
     """
     Use mash to get closest older genomes to isolate genomes via minimap2
     """
-    mash_hits = output_dir / "isolate_mash_hits.tsv"
-    subprocess.run(f"mash dist -p {num_processes} -i {isolate_fasta_fp} {sketch} > {mash_hits} "
-                    " 2> /dev/null",
-                    shell=True,
-                    check=True)
+    # parallelise
+    pool = Pool(num_processes)
+    parallel_input = [(isolate, isolate_path, metadata, ref_sketch) \
+                        for isolate, isolate_path in isolate_fasta_index.items()]
+    mash_distances = pool.map(older_mash_for_isolate, parallel_input)
+    pool.close()
 
-    mash_hits = pd.read_csv(mash_hits, sep='\t', names=["isolate",
-                                                        "closest_ancestor",
-                                                        "distance",
-                                                        "p-value",
-                                                        "shared-hashes"])
+    closest_older_mash_hits = pd.concat(mash_distances)
 
-    # add metric type
-    mash_hits['metric'] = 'mash'
-
-    # filter out self-hits
-    mash_hits = mash_hits[mash_hits['isolate'] != mash_hits['closest_ancestor']]
-
-    # get older strain names
-    closest_older_mash_hits = []
-    for isolate in isolates:
-        isolate_date = metadata.loc[isolate, 'date']
-        older_strains = set(metadata[metadata['date'] < isolate_date].index)
-        isolate_hits = mash_hits.loc[mash_hits['isolate'] == isolate]
-        older_isolate_hits = isolate_hits[isolate_hits['closest_ancestor'].isin(older_strains)]
-        closest_older_mash_hits.append(older_isolate_hits)
-
-    closest_older_mash_hits = pd.concat(closest_older_mash_hits)
-
-    # can't use idxmin because want to keep minimum ties
-    min_ix = closest_older_mash_hits.groupby('isolate')['distance']\
-                    .nsmallest(1, keep='all').reset_index()['level_1'].values
-
-    closest_older_mash_hits = closest_older_mash_hits.loc[min_ix,
-                                                          ['isolate',
-                                                           'closest_ancestor',
-                                                           'metric',
-                                                           'distance']]
     return closest_older_mash_hits
 
 
