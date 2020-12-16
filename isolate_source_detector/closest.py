@@ -81,7 +81,7 @@ def older_mash_for_isolate(input_data):
                              shell=True,
                              check=True)
 
-    isolate_hit = pd.read_csv(StringIO(result.stdout.decode('utf8')), 
+    isolate_hits = pd.read_csv(StringIO(result.stdout.decode('utf8')), 
                               sep='\t', names=["closest_ancestor",
                                                "isolate",
                                                "distance",
@@ -89,14 +89,15 @@ def older_mash_for_isolate(input_data):
                                                "shared-hashes"])
     # filter out self-hits
     isolate_hits = isolate_hits[isolate_hits['isolate'] != isolate_hits['closest_ancestor']]
+    isolate_hits['metric'] = 'mash'
 
-    isolate_data = metadata.loc[isolate, 'date'] 
+    isolate_date = metadata.loc[isolate, 'date'] 
     older_strains = set(metadata[metadata['date'] < isolate_date].index)
     older_isolate_hits = isolate_hits[isolate_hits['closest_ancestor'].isin(older_strains)]
     
-    top_hit_ix = older_hits['distance'].nsmallest(1, keep='all').index
-    top_hits = older_hits.loc[top_hit_ix, ['isolate', 'closest_ancestor',
-                                            'metric', 'distance']]
+    top_hit_ix = older_isolate_hits['distance'].nsmallest(1, keep='all').index
+    top_hits = older_isolate_hits.loc[top_hit_ix, ['isolate', 'closest_ancestor',
+                                                   'metric', 'distance']]
     return top_hits
  
 
