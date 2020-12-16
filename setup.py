@@ -5,7 +5,7 @@
 from setuptools import setup, find_packages
 from isolate_source_detector import __version__
 
-with open('README.rst') as readme_file:
+with open('README.md') as readme_file:
     readme = readme_file.read()
 
 requirements = ['Click>=7.0', "Biopython", "tqdm", "ete3", "pandas"]
