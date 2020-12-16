@@ -8,9 +8,6 @@ from isolate_source_detector import __version__
 with open('README.rst') as readme_file:
     readme = readme_file.read()
 
-with open('HISTORY.rst') as history_file:
-    history = history_file.read()
-
 requirements = ['Click>=7.0', "Biopython", "tqdm", "ete3", "pandas"]
 
 setup_requirements = ['pytest-runner', ]
