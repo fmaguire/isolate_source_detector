@@ -72,7 +72,7 @@ def get_closest_older_leaves_in_tree(isolates, tree, metadata, num_processes):
 def older_mash_for_isolate(input_data):
     """
     Inner loop for parallelising mash across isolates without ending up with
-    a 60GB mash dist file containing all hits 
+    a 60GB mash dist file containing all hits
     """
     isolate, isolate_fasta, metadata, ref_sketch = input_data
 
@@ -81,7 +81,7 @@ def older_mash_for_isolate(input_data):
                              shell=True,
                              check=True)
 
-    isolate_hits = pd.read_csv(StringIO(result.stdout.decode('utf8')), 
+    isolate_hits = pd.read_csv(StringIO(result.stdout.decode('utf8')),
                               sep='\t', names=["closest_ancestor",
                                                "isolate",
                                                "distance",
@@ -90,16 +90,18 @@ def older_mash_for_isolate(input_data):
     # filter out self-hits
     isolate_hits = isolate_hits[isolate_hits['isolate'] != isolate_hits['closest_ancestor']]
     isolate_hits['metric'] = 'mash'
+    # overwrite isolate name to replace fasta path with just isolate name
+    isolate_hits['isolate'] = isolate
 
-    isolate_date = metadata.loc[isolate, 'date'] 
+    isolate_date = metadata.loc[isolate, 'date']
     older_strains = set(metadata[metadata['date'] < isolate_date].index)
     older_isolate_hits = isolate_hits[isolate_hits['closest_ancestor'].isin(older_strains)]
-    
+
     top_hit_ix = older_isolate_hits['distance'].nsmallest(1, keep='all').index
     top_hits = older_isolate_hits.loc[top_hit_ix, ['isolate', 'closest_ancestor',
                                                    'metric', 'distance']]
     return top_hits
- 
+
 
 def get_closest_older_genomes(isolate_fasta_index, ref_sketch, metadata,
                               output_dir, num_processes):
@@ -122,20 +124,20 @@ def get_ancestor_traits(present_isolates, tree, traits):
     """
     Extract ancestor traits from augur's inferred traits json dictionary
     """
-    data = {'isolate': [], 'closest_ancestor': [],
-            'geographic_scale': [], 'geographic_loc': [],
-            'inference_confidence': []}
-
+    data = {'isolate': [], 'trait_type': [],
+            'trait': []}
     for isolate in present_isolates:
         node = tree.search_nodes(name=isolate)[0]
         node = node.up
         ancestor_traits = traits[node.name]
-        for geo_scale in ['region_confidence', 'country_confidence', 'division_confidence']:
-            for location, confidence in ancestor_traits[geo_scale].items():
-                data['isolate'].append(isolate)
-                data['closest_ancestor'].append(node.name)
-                data['geographic_scale'].append(geo_scale.split('_')[0])
-                data['geographic_loc'].append(location)
-                data['inference_confidence'].append(confidence)
+
+	for trait in ['region', 'country', 'division']:
+	    data['isolate'].append(isolate)
+	    data['trait_type'].append(trait)
+	    data['trait_value'].append(ancestor_traits[trait])
+	    # add exposure trait too
+	    data['isolate'].append(isolate)
+	    data['trait_type'].append(trait + "_exposure")
+	    data['trait_value'].append(ancestor_traits[trait + "_exposure"])
 
     return pd.DataFrame(data)
