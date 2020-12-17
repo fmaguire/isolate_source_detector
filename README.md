@@ -63,4 +63,12 @@ Other python dependencies should be installed automatically:
                 --fasta ../ncov/data/sequences_2020-12-14_08-02.fasta --tree ../ncov/results/north-america_canada/tree.nwk \
                 --traits ../ncov/results/north-america_canada/traits.json 
 
+## Output
 
+Currently outputs 3 separate tsvs (plan is to tidy this up and create a bit more of a report).
+
+Table containing the closest genome and its metadata location to
+
+	out/mash.tsv - closest older genome by mash distance with location metadata 
+	out/phylo_distance.tsv - closest older isolate by phylogenetic distance with location metadata
+	out/inferred_traits.tsv - inferred location data for ancestral node for each isolate
